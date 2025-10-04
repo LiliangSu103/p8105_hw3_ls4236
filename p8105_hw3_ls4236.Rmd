@@ -1,0 +1,11 @@
+---
+title: "p8105_hw3_ls4236"
+author: "Liliang Su"
+date: "2025-10-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
