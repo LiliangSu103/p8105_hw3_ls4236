@@ -278,7 +278,6 @@ zillow_mon_2023 = zillow_df |>
   filter(year == 2023) |> 
   group_by(borough, zip_code, month) |> 
   summarise(avg_price = mean(zori, na.rm = TRUE), .groups = "drop") |> 
-  mutate(borough = factor(borough, levels = c("Manhattan", "Brooklyn", "Queens", "Staten Island", "Bronx"))) |> 
   ggplot(aes(x = avg_price, y = borough, fill = borough)) +
   geom_density_ridges(alpha = 0.5, scale = .8, color = "black") +
   labs(
@@ -308,4 +307,132 @@ ggsave("./results/borough_rental_distribution.png",
        plot = combined_plot,
        width = 12, height = 6, dpi = 300)
 ```
+
+## Problem 3
+
+### Import and tidy
+
+Import, merge, and clean both datasets.
+
+```{r}
+
+nhanes_accel = read_csv("./data/nhanes_accel.csv" , na = c("NA",".","")) |> 
+  janitor::clean_names()
+  
+nhanes_demo = read_csv("./data/nhanes_covar.csv", skip = 4 , na = c("NA",".","")) |> 
+  janitor::clean_names()
+  
+nhanes_df = nhanes_demo |> 
+  inner_join(nhanes_accel, by = "seqn") |>  # merge dataset
+  filter(age >= 21, !is.na(sex), !is.na(age), !is.na(bmi), !is.na(education)) |> # filter participants
+  mutate(
+    sex = factor(sex, 
+                 levels = c(1,2), 
+                 labels = c("Male", "Female")),
+    education = factor(education, levels = c(1,2,3),
+                       labels = c("Less than high school", "High school equivalent", "More than high school"),
+                       ordered = TRUE)
+  ) |> # convert to factors
+  pivot_longer(
+    cols = starts_with("min"),
+    names_to = "minute",
+    values_to = "mims"
+  )
+```
+
+### Table and visualization
+
+```{r}
+nhanes_df |> 
+  group_by(education, sex) |> 
+  summarise(n = n_distinct(seqn), .groups = "drop") |> 
+  pivot_wider(
+    names_from = sex,
+    values_from = n
+  ) |> 
+  knitr::kable(digits = 2)
+```
+
+The above table shows that there are 12 more men than women in the high school or equivalent group, whereas in the other two education groups, the numbers of men and women are fairly comparable.
+
+```{r}
+nhanes_df |> 
+  ggplot(aes(x = age, fill = sex)) +
+  geom_density(alpha = 0.5, ) +
+  facet_grid(education ~ .) +
+  labs(
+    title = "Age Distributions of Men and Women by Education Category",
+    x = "Age (years)",
+    y = "Density",
+    fill = "Sex"
+  )
+```
+
+The plot shows that age distributions differ by education groups. Participants with higher education levels tend to be younger on average for both men and women, which contrasts with with the pattern observed in the group with less than a high school education. Other than the high school equivalent education group, the age distributions for men and women are similar and have large overlapping area, suggesting no strong gender differences in age for this sample.
+
+### Tranditional analyses
+
+```{r}
+# Aggregate across minutes
+nhanes_total = nhanes_df |> 
+  group_by(seqn, age, sex, bmi, education) |> 
+  summarise(
+    total_activity = sum(mims), .groups = "drop"
+  )
+
+nhanes_total |> 
+  ggplot(aes(x = age, y = total_activity, color = sex)) +
+  geom_point(aes(shape = sex), alpha = .6) +
+  geom_smooth(method = "loess", formula = "y ~ x", se = FALSE) +
+  facet_grid(. ~ education) +
+  labs(
+    title = "Total activities vs. age across education groups",
+    x = "Age",
+    y = "Total activities"
+  ) 
+```
+
+
+- The plot shows that total daily activity tends to decline significantly with age across all education groups, with younger participants generally having higher total MIMS values. 
+
+- Across education levels, participants with higher education levels tend to maintain their activity longer, showing a slower decline compared to those with less education.
+
+- In terms of gender differences, women appear to have slightly lower or more variable activity levels compared to men, especially in higher education groups.
+
+### 24-hour activity time courses
+
+```{r}
+# Create new column time
+nhanes_hour = nhanes_df |> 
+  mutate(hour = as.numeric(str_remove_all(minute, "min")) %/% 60) |> 
+  group_by(education, sex, hour) |> 
+  summarise(
+    avg_activity = mean(mims), # the average mims across certain gender at certain time in a certain group.
+    .groups = "drop"
+  )
+
+nhanes_hour |> 
+  ggplot(aes(x = hour, y = avg_activity, color = sex)) +
+  geom_point(alpha = .6) +
+  geom_smooth(se = FALSE, method = "loess", formula = "y~x") +
+  facet_grid(. ~ education) +
+  labs(
+    title = "24-Hour Activity Courses by Education and Sex",
+    x = "Hour of Day",
+    y = "Average MIMS",
+    color = "Sex"
+  )
+```
+
+**Pattern & Conclusion**:
+
+- Activity peaks in the daytime hours (around 8 a.m. to 6 p.m.) and declines sharply at night, which is consistent with daily human activity cycles.
+
+- Across all education levels, men tend to have slightly higher activity levels than women in daytime.
+
+- The gender gap in activity levels appears to expand during daytime as the increase of the participant's education level, possibly reflecting the difference in job types affected by gender.
+
+- Participants with lower education levels, especially male, have higher activity levels in daytime hours, potentially reflecting the difference in occupation types associated with educational background.
+
+
 
