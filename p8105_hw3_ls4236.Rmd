@@ -39,6 +39,7 @@ data("instacart")
 ### Dataset Exploration and description
 
 Firstly explore the data and check missing values.
+
 ```{r}
 str(instacart)
 sum(is.na(instacart))
