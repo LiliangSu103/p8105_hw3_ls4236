@@ -245,6 +245,7 @@ zillow_line = zillow_boro_n_yr |>
   theme(legend.position = "right")
 
 
+# box plot, where each jitter point represent the yearly mean rent within a certain ZIP code
 zillow_box = zillow_df |> 
   group_by(zip_code, borough, year) |> 
   summarise(avg_price = mean(zori, na.rm = TRUE), .groups = "drop") |> 
@@ -259,7 +260,7 @@ zillow_box = zillow_df |>
   ) +
   labs(
     x = "Year",
-    y = "Yearly Average Rent"
+    y = "Yearly Average Rent per ZIP"
   ) +
   theme(legend.position = "none")
 
